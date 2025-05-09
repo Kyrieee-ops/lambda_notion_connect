@@ -1,14 +1,18 @@
+#=======================================================================
+# EventBridge SchedulerがLambda関数を実行するためのロール
+#=======================================================================
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
   NotionLambdaRole:
     Type: 'AWS::IAM::Role'
     Properties: 
+      RoleName: 'lambda-eventbridge-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: 'Allow'
             Principal:
-              Service: 'lambda.amazonaws.com'
+              Service: 'scheduler.amazonaws.com'
             Action: 'sts:AssumeRole'
       Policies:
         - PolicyName: 'lambda-eventbridge-policy'
@@ -17,8 +21,5 @@ Resources:
             Statement:
               - Effect: 'Allow'
                 Action: 
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
                   - 'lambda:InvokeFunction'
                 Resource: '*'

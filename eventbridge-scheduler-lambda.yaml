@@ -1,0 +1,17 @@
+#=======================================================================
+# Qiita APIを叩いて、NotionDBに連携するLambdaを定期実行
+#=======================================================================
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  LambdaEventbridgeScheduler:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: "eventbridge-scheduler-lambda-notion"
+      Description: "Qiita APIを叩いて対象タグの記事を取得しNotionDBに登録するLambdaを定期実行"
+      ScheduleExpression: "cron(0 12 ? * 2 *)" # 毎週月曜日12時に定期実行
+      ScheduleExpressionTimezone: "Asia/Tokyo"
+      Target:
+        Arn: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:notion-connect
+        RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/lambda-eventbridge-role
+      FlexibleTimeWindow:
+        Mode: "OFF"
