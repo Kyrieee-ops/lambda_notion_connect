@@ -3,11 +3,17 @@ import requests
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from notion_client import Client
+import boto3
+import json
 
 # 環境変数から認証情報取得
 QIITA_TOKEN = os.getenv('QIITA_TOKEN')  # Qiitaのアクセストークン
 NOTION_TOKEN = os.getenv('NOTION_TOKEN') # Notion Secretキー
 NOTION_DB_ID = os.getenv('NOTION_DB_ID') # Notion DBキー
+SNS_TOPIC_ARN = os.getenv('SNS_TOPIC_ARN') # SNSトピックARN
+
+# AWSクライアント初期化（関数外で定義）
+sns_client = boto3.client('sns')
 
 def lambda_handler(event, context):
     try:
@@ -32,6 +38,16 @@ def lambda_handler(event, context):
             result = create_notion_page(notion, article)
             results.append(result)
         
+        # 6. SNSで成功通知 (追加)
+        send_sns_notification(
+            status="SUCCESS",
+            message=f"{len(new_articles)}件の新規記事を登録しました",
+            details={
+                "processed": len(new_articles),
+                "skipped": len(articles) - len(new_articles)
+            }
+        )
+
         return {
             "statusCode": 200,
             "body": {
@@ -41,10 +57,29 @@ def lambda_handler(event, context):
         }
         
     except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": {"error": str(e)}
-        }
+        # 7. SNSで失敗通知 (追加)
+        send_sns_notification(
+            status="FAILED",
+            message="処理中にエラーが発生しました",
+            details={"error": str(e)}
+        )
+        raise e
+
+def send_sns_notification(status, message, details):
+    """SNS通知を送信"""
+    notification = {
+        "status": status,
+        "message": message,
+        "details": details,
+        "timestamp": datetime.now().isoformat()
+    }
+    print(f"SNSに送信: {notification}")  # send_sns_notification()内に追加
+    
+    sns_client.publish(
+        TopicArn=SNS_TOPIC_ARN,
+        Message=json.dumps(notification, ensure_ascii=False),
+        Subject=f"Qiita-Notion Sync {status}"
+    )
 
 def get_existing_article_urls(notion):
     """NotionDBから既存記事のURL一覧を取得"""
